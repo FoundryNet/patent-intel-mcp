@@ -1,0 +1,19 @@
+name: "@foundrynet/patent-intel"
+displayName: "Patent Intelligence MCP"
+description: >-
+  Patent intelligence for AI agents — patent search, USPTO data, intellectual
+  property research, patent landscape, technology trends, and semantic prior-art
+  search (pgvector). Tools: search_patents, patent_detail (free), company_patents,
+  trending_technology, prior_art_search, daily_digest, and mint_info. Part of the
+  FoundryNet Data Network. Free tier then x402 (USDC on Solana).
+startCommand:
+  type: http
+  url: "https://patent-intel-mcp-production.up.railway.app/mcp"
+  transport: streamable-http
+  configSchema:
+    type: object
+    properties:
+      api_key:
+        type: string
+        title: "Forge billing key (optional)"
+        description: "fnet_ key to bypass the per-query x402 paywall and bill to a Forge account."

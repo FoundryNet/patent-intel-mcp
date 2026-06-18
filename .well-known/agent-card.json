@@ -1,0 +1,28 @@
+{
+  "name": "Patent Intelligence MCP",
+  "description": "Patent intelligence for agents: patent search, USPTO data, intellectual property, patent landscape, technology trends, and pgvector prior-art search. Part of the FoundryNet Data Network.",
+  "url": "https://github.com/FoundryNet/patent-intel-mcp",
+  "capabilities": [
+    "patent_search",
+    "uspto_data",
+    "intellectual_property",
+    "patent_landscape",
+    "prior_art_search",
+    "technology_trends"
+  ],
+  "network": "FoundryNet Data Network",
+  "see_also": {
+    "gov-contracts-mcp": "https://gov-contracts-mcp-production.up.railway.app/mcp",
+    "brand-intel-mcp": "https://brand-intel-mcp-production.up.railway.app/mcp"
+  },
+  "mint_protocol": "https://mint-mcp-production.up.railway.app/mcp",
+  "protocols": {
+    "mcp": {
+      "endpoint": "https://patent-intel-mcp-production.up.railway.app/mcp",
+      "transport": "streamable-http",
+      "tools_count": 7
+    },
+    "x402": { "supported": true, "currency": "USDC", "network": "solana" }
+  },
+  "contact": "hello@foundrynet.io"
+}
