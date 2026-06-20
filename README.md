@@ -8,8 +8,21 @@ USPTO PatentsView data.
 > [MINT Protocol](https://mint-mcp-production.up.railway.app/mcp) for verifiable,
 > on-chain proof of work. See also: **gov-contracts-mcp**, **brand-intel-mcp**.
 
-Live MCP endpoint (Streamable HTTP):
-`https://patent-intel-mcp-production.up.railway.app/mcp`
+## Connect
+
+- **MCP endpoint** (Streamable HTTP): `https://patent-intel-mcp-production.up.railway.app/mcp`
+- **MCP registry**: `io.github.FoundryNet/patent-intel-mcp`
+- **Agent card**: `https://patent-intel-mcp-production.up.railway.app/.well-known/agent-card.json`
+
+### Claude Desktop / Cursor / Claude Code
+
+```bash
+claude mcp add --transport http patent-intel https://patent-intel-mcp-production.up.railway.app/mcp
+```
+
+```json
+{ "mcpServers": { "patent-intel": { "url": "https://patent-intel-mcp-production.up.railway.app/mcp" } } }
+```
 
 ## Tools
 
@@ -42,12 +55,13 @@ pgvector cosine similarity. A rolling `patent_assignees` summary powers
 so it's left null (a future enrichment hook); `citation_count` and the rest come
 straight from PatentsView.
 
-## Connect
+## Also on
 
-Smithery: `@foundrynet/patent-intel` · MCP registry: `io.github.FoundryNet/patent-intel-mcp`
-
-```json
-{ "mcpServers": { "patent-intel": { "url": "https://patent-intel-mcp-production.up.railway.app/mcp" } } }
-```
+Smithery: `io.github.FoundryNet/patent-intel-mcp`
 
 Built by [FoundryNet](https://foundrynet.io) · hello@foundrynet.io
+
+## Live network activity
+
+**Live feed:** [mint.foundrynet.io/feed](https://mint.foundrynet.io/feed)  
+Real-time verified work across 13 servers and autonomous agents, anchored on Solana via [MINT Protocol](https://mint.foundrynet.io).

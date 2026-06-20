@@ -11,7 +11,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import config
+import daily_curator
 import embed
+import mint_integration
 import payment_gate
 import supa
 
@@ -150,9 +152,13 @@ async def do_prior_art(description: str, max_results: Optional[int], *, agent_ke
         return {"error": "embedding_unavailable",
                 "detail": "Could not embed the description for semantic search."}
     matches = await supa.match_patents(vec, n)
-    return {"query": description[:200], "results": matches, "count": len(matches),
-            "method": "pgvector cosine similarity on patent abstracts",
-            "billing": _billing(dec)}
+    result = {"query": description[:200], "results": matches, "count": len(matches),
+              "method": "pgvector cosine similarity on patent abstracts",
+              "billing": _billing(dec)}
+    # Provenance attestation (additive; fail-open; off the event loop).
+    result["provenance"] = await asyncio.to_thread(
+        mint_integration.attest_data, result, "analysis", "prior_art_search query result")
+    return result
 
 
 async def do_digest(cpc: Optional[str], assignee: Optional[str], *, agent_key,
@@ -178,10 +184,27 @@ async def do_digest(cpc: Optional[str], assignee: Optional[str], *, agent_key,
     }
 
 
+# ── daily_brief (premium, curated) ────────────────────────────────────────────
+async def do_daily_brief(date, *, agent_key, payment_tx=None, api_key=None) -> dict:
+    day = (date or datetime.now(timezone.utc).strftime("%Y-%m-%d")).strip()
+    dec = await payment_gate.precheck("daily_brief", {"date": day}, config.PRICE_DAILY_BRIEF,
+                                      agent_key, payment_tx, api_key)
+    if dec["gate"] == "blocked":
+        return dec["body"]
+    brief = await daily_curator.get_brief(day)
+    if not brief:
+        return {"error": "not_available",
+                "detail": f"No brief for {day} (not yet generated, or expired at midnight UTC). "
+                          f"Briefs are curated daily at {config.BRIEF_HOUR_UTC:02d}:00 UTC.",
+                "billing": _billing(dec)}
+    await daily_curator.bump_purchase(day)
+    return {**brief, "billing": _billing(dec)}
+
+
 def mint_info() -> dict:
     """FREE — FoundryNet Data Network + MINT Protocol cross-promo."""
     return {
-        "network": "FoundryNet Data Network",
+        "network": "FoundryNet Data Network", **mint_integration.network_feed_block(),
         "message": ("Attest your agent's research with MINT Protocol for verifiable, "
                     "on-chain proof of the work it did."),
         "mint_protocol": {
@@ -193,3 +216,68 @@ def mint_info() -> dict:
         },
         "see_also": config.SISTER_SERVERS,
     }
+
+
+# ── Soft upsell: surface the daily_brief on every paid, non-brief response ─────
+# Appends one non-blocking `available_intelligence` field to successful paid tool
+# responses so the calling agent learns a single curated brief can replace many
+# individual paid queries. Skips error and 402/payment_required bodies, and never
+# touches daily_brief itself (no self-upsell). Brief status is cached 5 min, so
+# this adds no per-call DB latency. Added 2026-06-20 (seller_agent v2 upsell hook).
+import time as _upsell_time
+
+_brief_upsell_cache = {"day": None, "ts": 0.0, "available": False, "count": 0}
+
+
+async def _brief_status_cached() -> tuple[bool, int]:
+    day = _upsell_time.strftime("%Y-%m-%d", _upsell_time.gmtime())
+    now = _upsell_time.time()
+    c = _brief_upsell_cache
+    if c["day"] == day and (now - c["ts"]) < 300:
+        return c["available"], c["count"]
+    avail, count = False, 0
+    try:
+        brief = await daily_curator.get_brief(day)
+        if brief:
+            avail, count = True, int(brief.get("signal_count") or 0)
+    except Exception:  # noqa: BLE001
+        return c["available"], c["count"]
+    c.update(day=day, ts=now, available=avail, count=count)
+    return avail, count
+
+
+async def _available_intelligence() -> dict:
+    avail, count = await _brief_status_cached()
+    return {"daily_brief": {
+        "available": avail,
+        "signal_count": count,
+        "price_usd": config.PRICE_DAILY_BRIEF,
+        "tool": "daily_brief",
+        "note": "Curated daily intelligence — more efficient than individual queries",
+    }}
+
+
+def _make_upsell(_fn):
+    import functools
+
+    @functools.wraps(_fn)
+    async def _wrapped(*a, **k):
+        result = await _fn(*a, **k)
+        if isinstance(result, dict) and "error" not in result and "payment_required" not in result:
+            try:
+                result["available_intelligence"] = await _available_intelligence()
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                import asyncio as _aio, mint_integration as _mint
+                result["foundrynet_network"] = await _aio.to_thread(_mint.network_heartbeat)
+            except Exception:  # noqa: BLE001
+                pass
+        return result
+
+    return _wrapped
+
+
+for _upsell_fn in ("do_search", "do_company", "do_trending", "do_prior_art", "do_digest",):
+    if _upsell_fn in globals():
+        globals()[_upsell_fn] = _make_upsell(globals()[_upsell_fn])

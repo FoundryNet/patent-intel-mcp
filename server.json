@@ -2,12 +2,16 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.FoundryNet/patent-intel-mcp",
   "title": "Patent Intelligence MCP",
-  "description": "Patent search, USPTO data, patent landscape & pgvector prior-art search for agents.",
+  "description": "Search USPTO patents, citations, and assignees, and find prior art with semantic vector search — for IP research and patent-landscape analysis.",
   "version": "1.0.0",
+  "homepage": "https://foundrynet.io",
   "repository": {
     "url": "https://github.com/FoundryNet/patent-intel-mcp",
     "source": "github"
   },
+  "categories": ["research", "intellectual-property", "data", "legal"],
+  "tags": ["patent search", "USPTO", "intellectual property", "prior art", "patent landscape", "CPC classification"],
+  "keywords": ["patent search", "USPTO", "intellectual property", "prior art", "patent landscape", "CPC classification"],
   "remotes": [
     {
       "type": "streamable-http",

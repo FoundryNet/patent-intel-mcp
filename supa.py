@@ -50,6 +50,27 @@ async def _rpc(fn: str, body: dict):
                               body=body, timeout=config.REQUEST_TIMEOUT)
 
 
+# ── generic helpers (daily_curator) ───────────────────────────────────────────
+async def select(table: str, params: dict) -> list:
+    return await _select(table, params)
+
+
+async def upsert(table: str, rows: list, on_conflict: str) -> dict:
+    if not configured() or not rows:
+        return {"data": []}
+    r = await request_json("POST", _url(table),
+                           headers=_headers({"Prefer": "resolution=merge-duplicates,return=minimal"}),
+                           params={"on_conflict": on_conflict},
+                           body=rows, timeout=max(config.REQUEST_TIMEOUT, 60))
+    if isinstance(r, dict) and r.get("error"):
+        return r
+    return {"data": rows}
+
+
+async def rpc(fn: str, body: dict):
+    return await _rpc(fn, body)
+
+
 _FIELDS = ("id,patent_number,application_number,title,abstract,filing_date,"
            "grant_date,publication_date,assignee_name,assignee_country,inventors,"
            "cpc_codes,cpc_primary,claims_count,citation_count,status,patent_type,"

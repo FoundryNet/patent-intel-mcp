@@ -29,6 +29,7 @@ from starlette.responses import JSONResponse
 
 import config
 import core
+import daily_curator
 import identity
 import patent_aggregator
 import patents_source
@@ -64,7 +65,8 @@ async def health(request: Request) -> JSONResponse:
         "status": "ok", "service": "patent-intel-mcp", "transport": "streamable-http",
         "network": "FoundryNet Data Network",
         "tools": ["search_patents", "patent_detail", "company_patents",
-                  "trending_technology", "prior_art_search", "daily_digest", "mint_info"],
+                  "trending_technology", "prior_art_search", "daily_digest",
+                  "daily_brief", "mint_info"],
         "dataset": "supabase:patents" if supa.configured() else "unconfigured",
         "patentsview_key": "set" if patents_source.configured() else "unset",
         "embeddings": config.EMBED_MODEL,
@@ -194,13 +196,25 @@ _DESC = ("Patent intelligence for agents: patent search, USPTO PatentsView data,
 
 _AGENT_CARD = {
     "name": "Patent Intelligence MCP",
-    "description": _DESC,
-    "url": "https://github.com/FoundryNet/patent-intel-mcp",
-    "capabilities": ["patent_search", "uspto_data", "intellectual_property",
-                     "patent_landscape", "prior_art_search", "technology_trends"],
+    "description": ("Search USPTO patents, citations, and assignees, and find prior art "
+                    "with semantic vector search — for IP research and patent-landscape "
+                    "analysis."),
+    "url": config.PUBLIC_MCP_URL,
+    "version": "1.0.0",
+    "capabilities": {
+        "tools": ["search_patents", "patent_detail", "company_patents",
+                  "trending_technology", "prior_art_search", "daily_digest",
+                  "daily_brief", "mint_info"],
+    },
+    "provider": {"name": "FoundryNet", "url": "https://foundrynet.io"},
     "network": "FoundryNet Data Network",
+    "attestation": {
+        "protocol": "MINT Protocol",
+        "endpoint": "https://mint-mcp-production.up.railway.app/mcp",
+        "verified_outputs": True, "live_feed": "https://mint.foundrynet.io/feed", "feed_api": "https://mint-mcp-production.up.railway.app/v1/feed",
+    },
     "protocols": {
-        "mcp": {"endpoint": config.PUBLIC_MCP_URL, "transport": "streamable-http", "tools_count": 7},
+        "mcp": {"endpoint": config.PUBLIC_MCP_URL, "transport": "streamable-http", "tools_count": 8},
         "x402": {"supported": True, "currency": "USDC", "network": "solana"},
     },
     "see_also": config.SISTER_SERVERS,
@@ -273,6 +287,31 @@ async def _agg_loop():
             await asyncio.sleep(3600)
 
 
+_FREE_TOOL_NAMES = {"mint_info", "macro_dashboard", "cve_detail", "detail",
+                    "domain_age", "convert", "rates", "market_overview", "price",
+                    "quote", "batch_quote", "sector_performance"}
+
+
+@mcp.custom_route("/.well-known/mcp.json", methods=["GET"])
+async def wellknown_mcp_json(request: Request) -> JSONResponse:
+    """Machine-discovery card (emerging standard) for AI clients/crawlers."""
+    live = await _live_tools()
+    names = [t["name"] for t in live]
+    return JSONResponse({
+        "name": _AGENT_CARD["name"],
+        "description": _AGENT_CARD["description"],
+        "url": config.PUBLIC_MCP_URL,
+        "transport": ["streamable-http"],
+        "tools": names,
+        "pricing": {"model": "per-query", "free_tier": True,
+                    "paid_tools": [n for n in names if n not in _FREE_TOOL_NAMES]},
+        "attestation": {"enabled": True, "protocol": "MINT Protocol",
+                        "feed": "https://mint.foundrynet.io/feed"},
+        "network": {"name": "FoundryNet Data Network", "servers": 17,
+                    "homepage": "https://foundrynet.io"},
+    }, headers={"Cache-Control": "public, max-age=300"})
+
+
 def build_dual_app():
     main_app = mcp.http_app(transport="http", path="/mcp")
     sse_app = mcp.http_app(transport="sse", path="/sse")
@@ -286,12 +325,14 @@ def build_dual_app():
         async with main_life(app):
             async with sse_life(app):
                 task = asyncio.create_task(_agg_loop())
+                brief_task = asyncio.create_task(daily_curator.curator_loop())
                 try:
                     yield
                 finally:
-                    task.cancel()
-                    with contextlib.suppress(Exception):
-                        await task
+                    for t in (task, brief_task):
+                        t.cancel()
+                        with contextlib.suppress(Exception):
+                            await t
     main_app.router.lifespan_context = _dual_lifespan
     return main_app
 
