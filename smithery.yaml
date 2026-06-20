@@ -1,11 +1,36 @@
-name: "@foundrynet/patent-intel"
-displayName: "Patent Intelligence MCP"
+name: "@foundrynet/patent-intel-mcp"
+displayName: "FoundryNet Patent Intelligence"
 description: >-
-  Patent intelligence for AI agents — patent search, USPTO data, intellectual
-  property research, patent landscape, technology trends, and semantic prior-art
-  search (pgvector). Tools: search_patents, patent_detail (free), company_patents,
-  trending_technology, prior_art_search, daily_digest, and mint_info. Part of the
-  FoundryNet Data Network. Free tier then x402 (USDC on Solana).
+  USPTO patent search with semantic prior art discovery, company portfolio analysis, filing velocity tracking, and CPC technology trends.
+icon: "📜"
+homepage: "https://foundrynet.io"
+repository: "https://github.com/FoundryNet/patent-intel-mcp"
+license: "MIT"
+categories:
+  - data
+  - research
+  - legal
+tags:
+  - patent-search
+  - uspto
+  - intellectual-property
+  - prior-art
+  - technology-trends
+  - cpc
+keywords:
+  - patent-search
+  - uspto
+  - intellectual-property
+  - prior-art
+  - technology-trends
+  - cpc
+attestation:
+  protocol: "MINT Protocol"
+  verified_outputs: true
+  live_feed: "https://mint.foundrynet.io/feed"
+network:
+  name: "FoundryNet Data Network"
+  servers: 17
 startCommand:
   type: http
   url: "https://patent-intel-mcp-production.up.railway.app/mcp"
