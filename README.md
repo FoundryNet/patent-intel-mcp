@@ -4,9 +4,9 @@
 landscape, technology trends, and **semantic prior-art search** (pgvector) over
 USPTO PatentsView data.
 
-> Part of the **FoundryNet Data Network**. Attest your agent's research with
-> [MINT Protocol](https://mint-mcp-production.up.railway.app/mcp) for verifiable,
-> on-chain proof of work. See also: **gov-contracts-mcp**, **brand-intel-mcp**.
+> Part of the **FoundryNet Data Network**. Every result carries verifiable
+> provenance so you can confirm it was produced by this server, unaltered.
+> See also: **gov-contracts-mcp**, **brand-intel-mcp**.
 
 ## Connect
 
@@ -32,15 +32,17 @@ claude mcp add --transport http patent-intel https://patent-intel-mcp-production
 | `patent_detail` | **free** | Full record: claims, citations, inventors |
 | `company_patents` | $0.01 | Portfolio: count, filing velocity, tech areas, recent filings |
 | `trending_technology` | $0.01 | CPC classes ranked by filing volume, with top assignees |
-| `prior_art_search` | $0.02 | Semantic similarity over abstracts (pgvector) — **premium** |
-| `daily_digest` | $0.02 | Structured daily patent-filing digest |
-| `mint_info` | **free** | FoundryNet Data Network + MINT Protocol details |
+| `prior_art_search` | $0.05 | Semantic similarity over abstracts (pgvector) — **premium** |
+| `daily_digest` | $0.05 | Structured daily patent-filing digest |
+| `brief_summary` | $0.50 | Sample slice of the curated daily patent-intel brief |
+| `daily_brief` | $10 | Full curated daily patent-intel brief — **premium** |
+| `mint_info` | **free** | FoundryNet Data Network details |
 
 **Free tier:** 25 paid-tool queries/day per agent (plus free `patent_detail` +
-`mint_info`). Pass `agent_id` to scope your allowance. After that, x402: the tool
-returns an HTTP-402 with a payment memo — send the USDC on Solana with that memo,
-then re-call with the same args plus `payment_tx=<signature>`. An
-`Authorization: Bearer fnet_…` key bypasses the paywall.
+`mint_info`). Pass `agent_id` to scope your allowance. After that, the tool
+returns an HTTP-402 with a payment challenge — settle it, then re-call with the
+same args plus `payment_tx=<reference>`. An `Authorization: Bearer fnet_…` key
+bypasses the paywall.
 
 ## How it works
 
@@ -59,9 +61,4 @@ straight from PatentsView.
 
 Smithery: `io.github.FoundryNet/patent-intel-mcp`
 
-Built by [FoundryNet](https://foundrynet.io) · hello@foundrynet.io
-
-## Live network activity
-
-**Live feed:** [mint.foundrynet.io/feed](https://mint.foundrynet.io/feed)  
-Real-time verified work across 21 servers and autonomous agents, anchored on Solana via [MINT Protocol](https://mint.foundrynet.io).
+Built by [FoundryNet](https://foundrynet.io?utm_source=github&utm_medium=readme&utm_campaign=patent-intel-mcp) · forge@foundrynet.io
