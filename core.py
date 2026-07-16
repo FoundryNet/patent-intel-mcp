@@ -15,6 +15,7 @@ import daily_curator
 import embed
 import mint_integration
 import payment_gate
+import stripe_gate
 import supa
 
 logger = logging.getLogger("patent.core")
@@ -185,12 +186,31 @@ async def do_digest(cpc: Optional[str], assignee: Optional[str], *, agent_key,
 
 
 # ── daily_brief (premium, curated) ────────────────────────────────────────────
-async def do_daily_brief(date, *, agent_key, payment_tx=None, api_key=None) -> dict:
+async def do_daily_brief(date, *, agent_key, payment_tx=None, api_key=None,
+                         stripe_token=None) -> dict:
     day = (date or datetime.now(timezone.utc).strftime("%Y-%m-%d")).strip()
+
+    # Stripe rail (parallel to x402): a paid Checkout Session unlocks the brief.
+    stripe_err = None
+    if stripe_token and stripe_gate.is_active():
+        sv = await stripe_gate.verify_session(stripe_token, config.PRICE_DAILY_BRIEF,
+                                              tool="daily_brief", agent_key=agent_key)
+        if sv["ok"]:
+            brief = await daily_curator.get_brief(day)
+            if not brief:
+                return {"error": "not_available",
+                        "detail": f"No brief for {day} (not yet generated, or expired at midnight UTC). "
+                                  f"Briefs are curated daily at {config.BRIEF_HOUR_UTC:02d}:00 UTC.",
+                        "billing": "stripe"}
+            await daily_curator.bump_purchase(day)
+            return {**brief, "billing": "stripe", "stripe_session": sv["session"]}
+        stripe_err = sv.get("detail")  # surface on the 402 below
+
     dec = await payment_gate.precheck("daily_brief", {"date": day}, config.PRICE_DAILY_BRIEF,
                                       agent_key, payment_tx, api_key)
     if dec["gate"] == "blocked":
-        return dec["body"]
+        return stripe_gate.augment_402(dec["body"], config.PRICE_DAILY_BRIEF,
+                                       stripe_error=stripe_err)
     brief = await daily_curator.get_brief(day)
     if not brief:
         return {"error": "not_available",
@@ -202,18 +222,12 @@ async def do_daily_brief(date, *, agent_key, payment_tx=None, api_key=None) -> d
 
 
 def mint_info() -> dict:
-    """FREE — FoundryNet Data Network + MINT Protocol cross-promo."""
+    """FREE — FoundryNet Data Network info."""
     return {
-        "network": "FoundryNet Data Network", **mint_integration.network_feed_block(),
-        "message": ("Attest your agent's research with MINT Protocol for verifiable, "
-                    "on-chain proof of the work it did."),
-        "mint_protocol": {
-            "what": "Universal work attestation + trust/reputation for autonomous agents.",
-            "mcp_endpoint": config.MINT_MCP_URL,
-            "info_url": config.MINT_INFO_URL,
-            "tools": ["mint_register", "mint_attest", "mint_verify", "mint_rate",
-                      "mint_recommend", "mint_discover"],
-        },
+        "network": "FoundryNet Data Network",
+        "message": ("Every premium result from this server carries verifiable "
+                    "provenance, so a buyer can confirm it was produced here, "
+                    "unaltered."),
         "see_also": config.SISTER_SERVERS,
     }
 
@@ -269,8 +283,11 @@ def _make_upsell(_fn):
             except Exception:  # noqa: BLE001
                 pass
             try:
-                import asyncio as _aio, mint_integration as _mint
-                result["foundrynet_network"] = await _aio.to_thread(_mint.network_heartbeat)
+                import asyncio as _aio, mint_integration as _mint, upsell_engine as _upsell_engine
+                _hb = await _aio.to_thread(_mint.network_heartbeat)
+                _av, _ct = await _brief_status_cached()
+                result["foundrynet_network"] = {**_hb, **_upsell_engine.get_upsell(
+                    brief_price=config.PRICE_DAILY_BRIEF, brief_signal_count=(_ct if _av else None))}
             except Exception:  # noqa: BLE001
                 pass
         return result
@@ -281,3 +298,46 @@ def _make_upsell(_fn):
 for _upsell_fn in ("do_search", "do_company", "do_trending", "do_prior_art", "do_digest",):
     if _upsell_fn in globals():
         globals()[_upsell_fn] = _make_upsell(globals()[_upsell_fn])
+
+
+# ── brief_summary ($0.50): structured top-5 sample of today's brief (upsell) ──
+def _top_signals(brief: dict, n: int = 5) -> list:
+    """Flatten a brief's signals into a flat top-N list — structure-agnostic."""
+    sig = (brief or {}).get("signals")
+    items: list = []
+    if isinstance(sig, dict):
+        for cat, val in sig.items():
+            if isinstance(val, list):
+                for it in val:
+                    items.append({"category": cat, **(it if isinstance(it, dict) else {"value": it})})
+            elif isinstance(val, dict):
+                items.append({"category": cat, **val})
+            elif val not in (None, "", 0):
+                items.append({"category": cat, "value": val})
+    elif isinstance(sig, list):
+        items = sig
+    return items[:n]
+
+
+async def do_brief_summary(date, *, agent_key, payment_tx=None, api_key=None):
+    """Top-5 signals from today's brief as structured JSON (no prose) — the $0.50
+    sample that upsells the full daily_brief."""
+    from datetime import datetime, timezone
+    day = (date or datetime.now(timezone.utc).strftime("%Y-%m-%d")).strip()
+    dec = await payment_gate.precheck("brief_summary", {"date": day}, config.PRICE_BRIEF_SUMMARY,
+                                      agent_key, payment_tx, api_key)
+    if dec["gate"] == "blocked":
+        return dec["body"]
+    brief = await daily_curator.get_brief(day)
+    if not brief:
+        return {"error": "not_available",
+                "detail": f"No brief for {day} yet (curated daily; expires next midnight UTC).",
+                "billing": _billing(dec)}
+    return {
+        "date": day,
+        "top_signals": _top_signals(brief, 5),
+        "total_signals": brief.get("signal_count"),
+        "full_brief": {"tool": "daily_brief", "price_usd": config.PRICE_DAILY_BRIEF,
+                       "note": "Full brief returns all signals with complete detail + provenance attestation."},
+        "billing": _billing(dec),
+    }

@@ -10,9 +10,9 @@ search. A daily in-process task (≈5am PT) ingests the last day's patents.
   trending_technology  ($0.01)   CPC classes by filing volume
   prior_art_search     ($0.02)   pgvector semantic similarity (premium)
   daily_digest         ($0.02)   structured daily filing digest
-  mint_info            (free)    MINT Protocol + sister-server cross-promo
+  mint_info            (free)    FoundryNet Data Network + sister-server info
 
-Free tier 25 queries/day per agent, then x402 (USDC on Solana). Bearer fnet_ key
+Free tier 25 queries/day per agent, then a per-query paywall. Bearer fnet_ key
 bypasses. Transport: Streamable HTTP at /mcp (+ legacy /sse). Health: /health.
 """
 from __future__ import annotations
@@ -84,7 +84,7 @@ async def health(request: Request) -> JSONResponse:
         "network": "FoundryNet Data Network",
         "tools": ["search_patents", "patent_detail", "company_patents",
                   "trending_technology", "prior_art_search", "daily_digest",
-                  "daily_brief", "mint_info"],
+                  "daily_brief", "brief_summary", "mint_info"],
         "dataset": "supabase:patents" if supa.configured() else "unconfigured",
         "patentsview_key": "set" if patents_source.configured() else "unset",
         "embeddings": config.EMBED_MODEL,
@@ -209,8 +209,8 @@ async def admin_aggregate(request: Request) -> JSONResponse:
 _TAGLINE = "Patent search, USPTO data & prior-art search for agents."
 _DESC = ("Patent intelligence for agents: patent search, USPTO PatentsView data, "
          "patent landscape, technology trends, and pgvector semantic prior-art "
-         "search. Part of the FoundryNet Data Network — attest your research with "
-         "MINT Protocol; see also gov-contracts-mcp and brand-intel-mcp.")
+         "search. Part of the FoundryNet Data Network; see also gov-contracts-mcp "
+         "and brand-intel-mcp.")
 
 _AGENT_CARD = {
     "name": "Patent Intelligence MCP",
@@ -222,22 +222,17 @@ _AGENT_CARD = {
     "capabilities": {
         "tools": ["search_patents", "patent_detail", "company_patents",
                   "trending_technology", "prior_art_search", "daily_digest",
-                  "daily_brief", "mint_info"],
+                  "daily_brief", "brief_summary", "mint_info"],
     },
     "provider": {"name": "FoundryNet", "url": "https://foundrynet.io"},
     "network": "FoundryNet Data Network",
-    "attestation": {
-        "protocol": "MINT Protocol",
-        "endpoint": "https://mint-mcp-production.up.railway.app/mcp",
-        "verified_outputs": True, "live_feed": "https://mint.foundrynet.io/feed", "feed_api": "https://mint-mcp-production.up.railway.app/v1/feed",
-    },
+    "attestation": {"verified_outputs": True},
     "protocols": {
-        "mcp": {"endpoint": config.PUBLIC_MCP_URL, "transport": "streamable-http", "tools_count": 8},
-        "x402": {"supported": True, "currency": "USDC", "network": "solana"},
+        "mcp": {"endpoint": config.PUBLIC_MCP_URL, "transport": "streamable-http", "tools_count": 9},
+        "x402": {"supported": True},
     },
     "see_also": config.SISTER_SERVERS,
-    "mint_protocol": config.MINT_MCP_URL,
-    "contact": "hello@foundrynet.io",
+    "contact": "forge@foundrynet.io",
 }
 
 
@@ -270,7 +265,7 @@ async def server_card(request: Request) -> JSONResponse:
         "authentication": {"type": "http", "scheme": "bearer",
                            "description": ("patent_detail and mint_info are free; other tools "
                                            "give 25 free queries/day then take an fnet_ Bearer key "
-                                           "OR x402 USDC.")},
+                                           "OR a per-query payment.")},
         "tools": live, "version": "1.0", "name": "Patent Intelligence MCP",
         "tagline": _TAGLINE, "description": _DESC,
         "serverUrl": config.PUBLIC_MCP_URL, "transport": "streamable-http",
@@ -283,7 +278,7 @@ async def server_card(request: Request) -> JSONResponse:
         "see_also": config.SISTER_SERVERS,
         "pricing": {"model": "metered",
                     "free_tier": f"{config.FREE_TIER_DAILY} queries/day + free patent_detail",
-                    "paid_from": f"{config.PRICE_SEARCH_PATENTS} USDC per query (x402)"},
+                    "paid_from": f"{config.PRICE_SEARCH_PATENTS} per query"},
     }, headers={"Cache-Control": "public, max-age=300"})
 
 
@@ -323,8 +318,7 @@ async def wellknown_mcp_json(request: Request) -> JSONResponse:
         "tools": names,
         "pricing": {"model": "per-query", "free_tier": True,
                     "paid_tools": [n for n in names if n not in _FREE_TOOL_NAMES]},
-        "attestation": {"enabled": True, "protocol": "MINT Protocol",
-                        "feed": "https://mint.foundrynet.io/feed"},
+        "attestation": {"enabled": True},
         "network": {"name": "FoundryNet Data Network", "servers": 17,
                     "homepage": "https://foundrynet.io"},
     }, headers={"Cache-Control": "public, max-age=300"})

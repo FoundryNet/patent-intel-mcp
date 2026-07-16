@@ -16,15 +16,15 @@ def register(mcp) -> None:
         velocity, primary technology areas (CPC), and recent filings. Patent
         landscape + competitive IP intelligence.
 
-        PAID: $0.01 USDC per query after the daily free allowance (25/day). On a
-        402, pay the returned Solana memo and re-call with the SAME args plus
-        payment_tx=<signature>. An Authorization: Bearer fnet_ key bypasses it.
+        PAID: $0.01 per query after the daily free allowance (25/day). On a
+        402, settle the returned payment challenge and re-call with the SAME args
+        plus payment_tx=<reference>. An Authorization: Bearer fnet_ key bypasses it.
 
         Args:
             company_name: assignee/company name, partial match (e.g. "Qualcomm").
             days_back: optionally restrict recent filings to the last N days.
             agent_id: stable id for your agent (scopes the free-tier counter).
-            payment_tx: Solana tx signature, when re-calling after a 402.
+            payment_tx: payment transaction reference, when re-calling after a 402.
         """
         return await core.do_company(company_name, days_back,
                                      agent_key=identity.resolve_agent_key(agent_id),

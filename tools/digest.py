@@ -16,15 +16,15 @@ def register(mcp) -> None:
         last day, with top CPC classes, top assignees, and the patent list.
         Optionally scoped to a CPC class or an assignee.
 
-        PAID: $0.02 USDC per query after the daily free allowance (25/day). On a
-        402, pay the returned Solana memo and re-call with the SAME args plus
-        payment_tx=<signature>. An Authorization: Bearer fnet_ key bypasses it.
+        PAID: $0.02 per query after the daily free allowance (25/day). On a
+        402, settle the returned payment challenge and re-call with the SAME args
+        plus payment_tx=<reference>. An Authorization: Bearer fnet_ key bypasses it.
 
         Args:
             cpc_code: optional CPC class/subclass prefix to scope the digest.
             assignee: optional assignee/company name to scope the digest.
             agent_id: stable id for your agent (scopes the free-tier counter).
-            payment_tx: Solana tx signature, when re-calling after a 402.
+            payment_tx: payment transaction reference, when re-calling after a 402.
         """
         return await core.do_digest(cpc_code, assignee,
                                     agent_key=identity.resolve_agent_key(agent_id),
